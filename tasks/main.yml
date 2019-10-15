@@ -268,4 +268,3 @@
   vars:
     ansible_user: "{{ connect_user }}"
     ansible_ssh_pass: "{{ connect_password }}"
-

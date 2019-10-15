@@ -45,7 +45,8 @@
         all_confs: "{{ all_confs + [ (item.content | b64decode) ] }}"
       loop:  "{{ suppl.results }}"
 
-    - set_fact:
+    - name: combining available configs for processing
+      set_fact:
         joined_confs: "{{ all_confs | join('\n') }}"
 
     - name: converting wlan config into json form
