@@ -9,7 +9,7 @@ Requirements
 ------------
 
 Role was tested with Ansible 2.8 on Raspbian Buster. Requires `discovered_ip` variable to have IP address of Raspberry Pi that will be setup.
-Best to combine it with [alxsey.ansible_ip_by_mac](https://galaxy.ansible.com/alxsey/ansible_ip_by_mac) role
+Best to combine it with [alxsey.ip_by_mac](https://galaxy.ansible.com/alxsey/ip_by_mac) role
 
 Role Variables
 --------------
@@ -34,7 +34,7 @@ None
 Example Playbook
 ----------------
 
-Best of all this role is used in combination with [alxsey.ansible_ip_by_mac](https://galaxy.ansible.com/alxsey/ansible_ip_by_mac) role.
+Best of all this role is used in combination with [alxsey.ip_by_mac](https://galaxy.ansible.com/alxsey/ip_by_mac) role.
 In this case you can define inventory like this:
 ```
 hosts:
@@ -52,7 +52,7 @@ Playbook in this case could be:
       - 8.8.8.8
       - 8.8.0.0
   roles:
-     - alxsey.ansible_ip_by_mac
+     - alxsey.ip_by_mac
      - alxsey.pi_bond_net
 ```
 
