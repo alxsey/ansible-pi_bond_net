@@ -1,4 +1,4 @@
-# ansible-pi_bond_net
+# ansible_pi_bond_net
 =====================
 
 This role bonds WiFi and Ethernet into single failover interface (bond0) which allows seamless transition to WiFi and back. Could be used as well to setupp fixed IP and switch over to systemd networking (as in Debian).
@@ -53,20 +53,20 @@ Playbook in this case could be:
       - 8.8.0.0
   roles:
      - alxsey.ansible_ip_by_mac
-     - alxsey.pi_bond_net
+     - alxsey.ansible_pi_bond_net
 ```
 
 To use this role as standalone `discovered_ip` must be provided:
 ```
 - hosts: another_pi
   roles:
-    - role: alxsey.pi_bond_net
+    - role: alxsey.ansible_pi_bond_net
       vars:
         - discovered_ip: 192.168.1.2
 ```
 
-##Note:
-This role assumes that it will be applied to freshly installed Raspbian and to apply changes it will reboot Raspberry Pi - it also takes care of `gpu_mem` to set it to lowest possible value (assuming headless configuration)
+## Note:
+This role assumes that it will be applied to freshly installed Raspbian and to apply changes it will reboot Raspberry Pi - it also takes care of `gpu_mem` to set it to lowest possible value - 16MiB (assuming headless configuration)
 
 License
 -------
