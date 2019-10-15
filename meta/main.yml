@@ -1,0 +1,17 @@
+galaxy_info:
+  role_name: pi_bond_net
+  author: Alex Ryabtsev
+  description: Setup Wi-Fi and Ethernet bond on Raspbian
+  company: NFKW
+  license: GPLv3
+  min_ansible_version: 2.8
+  platforms:
+  - name: Raspbian
+  versions:
+  - all
+  galaxy_tags:
+    - system
+    - networking
+    - init
+
+
