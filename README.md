@@ -47,6 +47,7 @@ hosts:
 Playbook in this case could be:
 ```
 - hosts: new_pi
+  become: yes
   vars:
     default_name_servers:
       - 8.8.8.8
@@ -59,6 +60,7 @@ Playbook in this case could be:
 To use this role as standalone `discovered_ip` must be provided:
 ```
 - hosts: another_pi
+  become: yes
   roles:
     - role: alxsey.pi_bond_net
       vars:
