@@ -1,5 +1,5 @@
 # pi_bond_net
-=====================
+=========
 
 This role bonds WiFi and Ethernet into single failover interface (bond0) which allows seamless transition to WiFi and back. Could be used as well to setupp fixed IP and switch over to systemd networking (as in Debian).
 
