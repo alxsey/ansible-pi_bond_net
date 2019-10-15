@@ -1,0 +1,271 @@
+---
+# initializing raspberry pi network as active-backup bonding for wired and wireless
+# by switching to systemd network management
+
+- name: add management public key
+  delegate_to: "{{ discovered_ip }}"
+  authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  failed_when: false
+  when: install_ssh_key
+
+- name: make sure hosts information is collected
+  delegate_to: "{{ discovered_ip }}"
+  setup:
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: use nameservers from {{ discovered_ip }} if others not defined
+  set_fact:
+    name_servers: "{{ ansible_dns.nameservers if ((ansible_dns.nameservers | length) > 0) else default_name_servers }}"
+  when: name_servers is not defined
+
+- name: use default gateway from {{ discovered_ip }} if others not defined
+  set_fact:
+    fixed_ip_gateway: "{{ ansible_default_ipv4.gateway }}"
+  when: fixed_ip_gateway is not defined
+
+- name: making sure required packages are installed
+  delegate_to: "{{ discovered_ip }}"
+  apt:
+    force_apt_get: yes
+    state: present
+    pkg:
+      - ethtool
+      - lshw
+      - libxml-xpath-perl
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: find physycal network devices permanent mac address
+  delegate_to: "{{ discovered_ip }}"
+  shell: |
+    set -o pipefail
+    for eths in $(lshw -c network -xml | xpath -q -e '/list/node[capabilities/capability[@id="autonegotiation"]]/logicalname/text()' | awk -F[\.\ ] '{print $1}' | sort | uniq); do echo $(ethtool -P $eths | awk '{print $NF}'); done | grep -v 00:00:00:00:00:00
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: phy_mac
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: collecting existing WiFi configuration
+  include_tasks: wifi_collect.yml
+  when: ((wifi_ssid is not defined) or (wifi_psk is not defined)) and wifi_setup
+
+- name: disabling and masking Debian networking
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: networking.service
+    enabled: no
+    masked: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: disabling and masking Raspbian dhcpcd
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: dhcpcd.service
+    enabled: no
+    masked: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: make sure systemd-networkd is enabled
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: systemd-networkd.service
+    enabled: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: make sure systemd-resolver is enabled
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: systemd-resolved.service
+    enabled: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: make sure symlink for systemd-resolved resolv.conf is in place
+  delegate_to: "{{ discovered_ip }}"
+  file:
+    src: /run/systemd/resolve/resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+    force: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: systemd-network defining bond0 configuration
+  delegate_to: "{{ discovered_ip }}"
+  template:
+    src: templates/02-bond0.netdev.j2
+    dest: /etc/systemd/network/02-bond0.netdev
+    owner: root
+    group: root
+    backup: yes
+  notify: "reboot pi"
+  vars:
+    fixed_ip: "{{ ansible_host }}"
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+    bond_mac: "{{ phy_mac.stdout_lines[0] | default('') }}"
+
+- name: systemd-network ethernet for bond0
+  delegate_to: "{{ discovered_ip }}"
+  template:
+    src: templates/12-bond0-add-eth.network.j2
+    dest: /etc/systemd/network/12-bond0-add-eth.network
+    owner: root
+    group: root
+    backup: yes
+  notify: "reboot pi"
+  vars:
+    fixed_ip: "{{ ansible_host }}"
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: systemd-network wifi for bond0
+  delegate_to: "{{ discovered_ip }}"
+  template:
+    src: templates/16-bond0-add-wifi.network.j2
+    dest: /etc/systemd/network/16-bond0-add-wifi.network
+    owner: root
+    group: root
+    backup: yes
+  notify: "reboot pi"
+  vars:
+    fixed_ip: "{{ ansible_host }}"
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  when: wifi_setup
+
+- name: systemd-network bond0 network configuration
+  delegate_to: "{{ discovered_ip }}"
+  template:
+    src: templates/20-bond0-up.network.j2
+    dest: /etc/systemd/network/20-bond0-up.network
+    owner: root
+    group: root
+    backup: yes
+  notify: "reboot pi"
+  vars:
+    fixed_ip: "{{ ansible_host }}"
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: wlan supplicant config file
+  delegate_to: "{{ discovered_ip }}"
+  template:
+    src: templates/wpa_supplicant-wlan0.conf.j2
+    dest: /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+    owner: root
+    group: root
+    mode: 'u=rw'
+    backup: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  when: wifi_setup
+
+- name: make sure original wpa_supplicant disabled
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: wpa_supplicant.service
+    enabled: no
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: make sure new wpa_supplicant is enabled
+  delegate_to: "{{ discovered_ip }}"
+  systemd:
+    name: wpa_supplicant@wlan0.service
+    enabled: yes
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  when: wifi_setup
+
+- name: setting {{ gpu_mem }}MB video memory split
+  delegate_to: "{{ discovered_ip }}"
+  lineinfile:
+    path: /boot/config.txt
+    state: present
+    line: "gpu_mem={{ gpu_mem }}"
+  notify: "reboot pi"
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: gather unpartitioned space (to check expand rootfs)
+  delegate_to: "{{ discovered_ip }}"
+  shell: |
+    set -o pipefail
+     sfdisk -F /dev/mmcblk0 | awk '/Unpartitioned/ { print $(NF-3) }'
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: nonpartition_bytes
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  when: expand_rootfs
+
+- name: expanding rootfs
+  #TODO: develop better check for rootfs expansion
+  delegate_to: "{{ discovered_ip }}"
+  command: raspi-config --expand-rootfs
+  notify: "reboot pi"
+  changed_when: (nonpartition_bytes.stdout | int) > 10000000
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  when: expand_rootfs
+
+- name: make sure pi is rebooted if there were changes
+  meta: flush_handlers
+
+- name: gather host facts
+  setup:
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+
+- name: unneeded packages removed
+  apt:
+    force_apt_get: yes
+    state: absent
+    autoremove: yes
+    purge: yes
+    pkg:
+      - openresolv
+      - ifupdown
+      - dhcpcd5
+      - isc-dhcp-client
+      - isc-dhcp-common
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+

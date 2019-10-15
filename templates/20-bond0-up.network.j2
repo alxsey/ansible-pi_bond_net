@@ -1,0 +1,10 @@
+[Match]
+Name=bond0
+[Network]
+{% if fixed_ip is defined %}
+Address={{ fixed_ip }}/24
+Gateway={{ fixed_ip_gateway }}
+DNS={% for dns_serv in name_servers %} {{ dns_serv }} {% endfor %}
+{% else %}
+DHCP=yes
+{% endif %}

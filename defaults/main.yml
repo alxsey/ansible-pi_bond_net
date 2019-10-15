@@ -1,0 +1,26 @@
+---
+# defaults for pi_init role
+connect_user: pi
+connect_password: raspberry
+install_ssh_key: true
+
+wpa_supplicatnt_file: /etc/wpa_supplicant/wpa_supplicant.conf
+wifi_setup: true
+wifi_country: US
+wifi_key_mgmt: WPA-PSK
+
+default_name_servers:
+  - 1.1.1.1
+  - 1.0.0.1
+
+# looks like modern raspbian does expand root unconditionally if headless mode used
+# TODO: while present expand_root is not properly implemented
+expand_rootfs: false
+
+# since it might be first PI's reboot and raspberry most likey going to be headless - it is good timing
+# set GPU memory to minimum
+gpu_mem: 16
+
+mii_monitor: 100ms
+link_up_delay: 500ms
+link_down_delay: 500ms

@@ -1,0 +1,18 @@
+---
+# handlers for pi_init
+- name: initiate reboot
+  delegate_to: "{{ discovered_ip }}"
+  shell: sleep 2 && shutdown -r now "Ansible initiated restart is triggered"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  vars:
+    ansible_user: "{{ connect_user }}"
+    ansible_ssh_pass: "{{ connect_password }}"
+  listen: reboot pi
+
+- name: wait for server to boot
+  wait_for_connection:
+    delay: 60
+    timeout: 300
+  listen: reboot pi

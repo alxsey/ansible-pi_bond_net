@@ -1,0 +1,14 @@
+[NetDev]
+# status: cat /proc/net/bonding/bond0
+Name=bond0
+Kind=bond
+{% if bond_mac != '' %}
+MACAddress={{ bond_mac }}
+{% endif %}
+[Bond]
+Mode=active-backup
+# primary slave is defined in *eth.network
+MIIMonitorSec={{ mii_monitor }}
+UpDelaySec={{ link_up_delay }}
+DownDelaySec={{ link_down_delay }}
+MinLinks=1

@@ -1,0 +1,9 @@
+---
+- name: testing pi_bond_net role
+  hosts: localhost
+  gather_facts: false
+  become: yes
+
+  roles:
+    - alxsey.ansible_ip_by_mac
+    - alxsey.raspbian-init

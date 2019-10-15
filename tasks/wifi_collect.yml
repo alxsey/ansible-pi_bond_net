@@ -1,0 +1,66 @@
+---
+# collecting additional information on current wifi setup
+# setting up wifi_ssid and wifi_psk to currently used 
+
+# TODO: add wifi interface name discovery
+- name: detect SSID that is currently in use
+  delegate_to: "{{ discovered_ip }}"
+  command: iwgetid wlan0 -r
+  vars:
+    ansible_user: "{{ connect_user }}"
+  register: ssid_rt
+  failed_when: false
+  changed_when: false
+  when: wifi_ssid is not defined
+
+- name: define wifi_ssid
+  set_fact:
+    wifi_ssid: "{{ ssid_rt.stdout }}"
+  when: (ssid_rt.stdout | default('') | length) > 0
+
+- name: checking for password for ssid
+  block:
+    - name: find  all wpa_supplicant config files
+      delegate_to: "{{ discovered_ip }}"
+      find:
+        paths: /etc/wpa_supplicant/
+        patterns: '*.conf'
+      vars:
+        ansible_user: "{{ connect_user }}"
+      register: wpa_configs
+
+    - name: reading existing wlan configuration
+      no_log: true
+      delegate_to: "{{ discovered_ip }}"
+      slurp:
+        src: "{{ item.path }}"
+      vars:
+        ansible_user: "{{ connect_user }}"
+      loop: "{{ wpa_configs.files }}"
+      register: suppl
+
+    - name: collecting wlan configs
+      no_log: true
+      set_fact:
+        all_confs: "{{ all_confs + [ (item.content | b64decode) ] }}"
+      loop:  "{{ suppl.results }}"
+
+    - set_fact:
+        joined_confs: "{{ all_confs | join('\n') }}"
+
+    - name: converting wlan config into json form
+      #TODO: improve regex to do full config (and not just network part) conversion to json
+      set_fact:
+        wpa_s: "{{ (joined_confs) | regex_replace('#.*\n','') | regex_replace('\t','') | regex_replace('\n','~~~') | regex_replace('.*?network={(.+?)}.*?','{\\1},') | regex_replace('~~~','\n') | regex_replace('\n+','\n') | regex_replace('\n *','\n') | regex_replace('\"','') | regex_replace('(.+?)=(.*?)\n+?','\"\\1\":\"\\2\",') | regex_replace('\n',',') | regex_replace('\"([{}])\"','\\1') | regex_replace('{, *','{') | regex_replace(',+}','}') | regex_replace(', *$','') }}"
+
+    - name: looking up pre-shared key (psk) for {{ wifi_ssid }}
+      set_fact:
+        wifi_psk: "{{ (wpa_s | json_query(jsonquery))[0] }}"
+      vars:
+        jsonquery: "[?ssid==`{{ wifi_ssid }}`].psk"
+  when: (wifi_ssid is defined) and (wifi_psk is not defined)
+
+- name: disabling wifi setup if no ssid and psk is defined
+  set_fact:
+    wifi_setup: false
+  when: (wifi_ssid is not defined) or (wifi_psk is not defined)
