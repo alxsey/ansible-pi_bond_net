@@ -27,6 +27,10 @@ Role supports several variables:
 
 `wifi_country` country code for WiFi (default `US`). Change it accordingly.
 
+`wifi_ssid` if setting up new or changing existing SSID
+
+`wifi_psk` again if setting up new or changing current
+
 Dependencies
 ------------
 None
