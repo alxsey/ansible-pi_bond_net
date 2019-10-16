@@ -32,6 +32,7 @@
 
 - name: making sure required packages are installed
   delegate_to: "{{ discovered_ip }}"
+  become: true
   apt:
     force_apt_get: yes
     state: present
@@ -45,6 +46,7 @@
 
 - name: find physycal network devices permanent mac address
   delegate_to: "{{ discovered_ip }}"
+  become: true
   shell: |
     set -o pipefail
     for eths in $(lshw -c network -xml | xpath -q -e '/list/node[capabilities/capability[@id="autonegotiation"]]/logicalname/text()' | awk -F[\.\ ] '{print $1}' | sort | uniq); do echo $(ethtool -P $eths | awk '{print $NF}'); done | grep -v 00:00:00:00:00:00
@@ -62,6 +64,7 @@
 
 - name: disabling and masking Debian networking
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: networking.service
     enabled: no
@@ -73,6 +76,7 @@
 
 - name: disabling and masking Raspbian dhcpcd
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: dhcpcd.service
     enabled: no
@@ -84,6 +88,7 @@
 
 - name: make sure systemd-networkd is enabled
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: systemd-networkd.service
     enabled: yes
@@ -94,6 +99,7 @@
 
 - name: make sure systemd-resolver is enabled
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: systemd-resolved.service
     enabled: yes
@@ -104,6 +110,7 @@
 
 - name: make sure symlink for systemd-resolved resolv.conf is in place
   delegate_to: "{{ discovered_ip }}"
+  become: true
   file:
     src: /run/systemd/resolve/resolv.conf
     dest: /etc/resolv.conf
@@ -116,6 +123,7 @@
 
 - name: systemd-network defining bond0 configuration
   delegate_to: "{{ discovered_ip }}"
+  become: true
   template:
     src: templates/02-bond0.netdev.j2
     dest: /etc/systemd/network/02-bond0.netdev
@@ -131,6 +139,7 @@
 
 - name: systemd-network ethernet for bond0
   delegate_to: "{{ discovered_ip }}"
+  become: true
   template:
     src: templates/12-bond0-add-eth.network.j2
     dest: /etc/systemd/network/12-bond0-add-eth.network
@@ -145,6 +154,7 @@
 
 - name: systemd-network wifi for bond0
   delegate_to: "{{ discovered_ip }}"
+  become: true
   template:
     src: templates/16-bond0-add-wifi.network.j2
     dest: /etc/systemd/network/16-bond0-add-wifi.network
@@ -160,6 +170,7 @@
 
 - name: systemd-network bond0 network configuration
   delegate_to: "{{ discovered_ip }}"
+  become: true
   template:
     src: templates/20-bond0-up.network.j2
     dest: /etc/systemd/network/20-bond0-up.network
@@ -174,6 +185,7 @@
 
 - name: wlan supplicant config file
   delegate_to: "{{ discovered_ip }}"
+  become: true
   template:
     src: templates/wpa_supplicant-wlan0.conf.j2
     dest: /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
@@ -189,6 +201,7 @@
 
 - name: make sure original wpa_supplicant disabled
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: wpa_supplicant.service
     enabled: no
@@ -199,6 +212,7 @@
 
 - name: make sure new wpa_supplicant is enabled
   delegate_to: "{{ discovered_ip }}"
+  become: true
   systemd:
     name: wpa_supplicant@wlan0.service
     enabled: yes
@@ -210,6 +224,7 @@
 
 - name: setting {{ gpu_mem }}MB video memory split
   delegate_to: "{{ discovered_ip }}"
+  become: true
   lineinfile:
     path: /boot/config.txt
     state: present
@@ -221,6 +236,7 @@
 
 - name: gather unpartitioned space (to check expand rootfs)
   delegate_to: "{{ discovered_ip }}"
+  become: true
   shell: |
     set -o pipefail
      sfdisk -F /dev/mmcblk0 | awk '/Unpartitioned/ { print $(NF-3) }'
@@ -236,6 +252,7 @@
 - name: expanding rootfs
   #TODO: develop better check for rootfs expansion
   delegate_to: "{{ discovered_ip }}"
+  become: true
   command: raspi-config --expand-rootfs
   notify: "reboot pi"
   changed_when: (nonpartition_bytes.stdout | int) > 10000000
@@ -254,6 +271,7 @@
     ansible_ssh_pass: "{{ connect_password }}"
 
 - name: unneeded packages removed
+  become: true
   apt:
     force_apt_get: yes
     state: absent

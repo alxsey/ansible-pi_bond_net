@@ -5,6 +5,7 @@
 # TODO: add wifi interface name discovery
 - name: detect SSID that is currently in use
   delegate_to: "{{ discovered_ip }}"
+  become: true
   command: iwgetid wlan0 -r
   vars:
     ansible_user: "{{ connect_user }}"
@@ -22,6 +23,7 @@
   block:
     - name: find  all wpa_supplicant config files
       delegate_to: "{{ discovered_ip }}"
+      become: true
       find:
         paths: /etc/wpa_supplicant/
         patterns: '*.conf'
@@ -32,6 +34,7 @@
     - name: reading existing wlan configuration
       no_log: true
       delegate_to: "{{ discovered_ip }}"
+      become: true
       slurp:
         src: "{{ item.path }}"
       vars:
